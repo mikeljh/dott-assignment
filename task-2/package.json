@@ -1,0 +1,23 @@
+{
+  "name": "task-2",
+  "version": "1.0.0",
+  "dependencies": {
+    "@types/portscanner": "^2.1.0",
+    "bee-queue": "^1.2.2",
+    "ip-to-int": "^0.3.1",
+    "portscanner": "^2.2.0",
+    "random-ipv4": "^1.0.2",
+    "raw-socket": "^1.6.4"
+  },
+  "scripts": {
+    "lint": "npx tslint src/*.ts src/**/*.ts",
+    "start-google": "npx ts-node src/ddos.ts https://www.google.com"
+  },
+  "devDependencies": {
+    "@types/node": "^10.12.18",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.12.1",
+    "tslint-config-semistandard": "^7.0.0",
+    "typescript": "^3.2.2"
+  }
+}

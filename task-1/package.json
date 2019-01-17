@@ -1,0 +1,36 @@
+{
+  "name": "task-1",
+  "version": "1.0.0",
+  "dependencies": {},
+  "scripts": {
+    "lint": "npx tslint *.ts",
+    "test": "npx nyc mocha -r ts-node/register test/*.ts"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/mocha": "^5.2.5",
+    "chai": "^4.2.0",
+    "mocha": "^5.2.0",
+    "nyc": "^13.1.0",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.12.1",
+    "tslint-config-semistandard": "^7.0.0",
+    "typescript": "^3.2.2"
+  },
+  "nyc": {
+    "extension": [
+      ".ts"
+    ],
+    "exclude": [
+      "dist",
+      "coverage",
+      "test"
+    ],
+    "reporter": [
+      "text-summary",
+      "html"
+    ],
+    "per-file": true,
+    "all": true
+  }
+}
