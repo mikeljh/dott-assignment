@@ -10,8 +10,7 @@ let attackQueue: BeeQueue;
 
 export interface IPScanResult {
   ip: string;
-  port: number;
-  open: boolean;
+  openPorts: number[];
 }
 
 export async function startWorker () {
@@ -21,17 +20,35 @@ export async function startWorker () {
 }
 
 function startProcessingPortScanTasks () {
-  const concurrency = 5000;
+  const concurrency = 10;
 
   portScanQueue = new BeeQueue('port-scan');
   portScanQueue.process(concurrency, async (job) => {
     let scanTask: IPScanTask = job.data;
-    let status = await portScanner.checkPortStatus(scanTask.port, scanTask.ip);
+    let promises: Promise<any>[] = [];
+    let openPorts: number[] = [];
+
+    for (let i = scanTask.portRange[0]; i < scanTask.portRange[1]; i++) {
+      let promise = new Promise(async (resolve) => {
+        let status = await portScanner.checkPortStatus(i, scanTask.ip);
+        let open = status === 'open';
+
+        if (open) {
+          openPorts.push(i);
+        }
+
+        resolve(open);
+      });
+
+      promises.push(promise);
+    }
+
+    await Promise.all(promises);
+
     return {
       ip: scanTask.ip,
-      port: scanTask.port,
-      open: status === 'open'
-    };
+      openPorts: openPorts
+    } as IPScanResult;
   });
 }
 
